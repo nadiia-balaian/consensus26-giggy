@@ -2,12 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  useAccount,
+  useSwitchChain,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+  usePublicClient,
+} from "wagmi";
+import { baseSepolia } from "wagmi/chains";
+import { keccak256, toBytes, parseEventLogs } from "viem";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
-import { createMission } from "@/lib/api/missions";
-import type { CreateMissionInput, WorkerType } from "@/types";
+import { api } from "@/lib/api/client";
+import { ESCROW_ADDRESS, USDC_ADDRESS, escrowAbi, usdcAbi, parseUsdc } from "@/lib/contracts";
+import type { CreateMissionInput, Mission, WorkerType } from "@/types";
 
 const WORKER_OPTIONS: { value: WorkerType; label: string }[] = [
   { value: "any", label: "Any Available Worker" },
@@ -15,9 +25,27 @@ const WORKER_OPTIONS: { value: WorkerType; label: string }[] = [
   { value: "human", label: "Human Only" },
 ];
 
+type Step = "idle" | "approving" | "creating" | "syncing" | "done" | "error";
+
+const STEP_LABELS: Record<Step, string> = {
+  idle: "Fund & Create Mission",
+  approving: "Step 1/3 — Approve USDC...",
+  creating: "Step 2/3 — Locking funds in escrow...",
+  syncing: "Step 3/3 — Syncing with backend...",
+  done: "Done!",
+  error: "Try again",
+};
+
 export default function CreateMissionPage() {
   const router = useRouter();
-  const [submitting, setSubmitting] = useState(false);
+  const { address, isConnected, chainId: walletChainId } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
+  const publicClient = usePublicClient({ chainId: baseSepolia.id });
+  const { writeContractAsync } = useWriteContract();
+  const onWrongChain = isConnected && walletChainId !== baseSepolia.id;
+  const [step, setStep] = useState<Step>("idle");
+  const [error, setError] = useState<string | null>(null);
+
   const [form, setForm] = useState<CreateMissionInput>({
     title: "",
     description: "",
@@ -37,12 +65,89 @@ export default function CreateMissionPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (submitting) return;
-    setSubmitting(true);
-    // TODO Backend: replace `createMission` with `POST /api/missions`. Server
-    // should escrow the reward and return the persisted Mission.
-    const mission = await createMission(form);
-    router.push(`/mission/${mission.id}`);
+    if (step !== "idle" && step !== "error") return;
+    if (!isConnected || !address) {
+      setError("Connect your wallet first");
+      return;
+    }
+    if (!publicClient) {
+      setError("Network not ready");
+      return;
+    }
+
+    setError(null);
+    const bounty = parseUsdc(form.rewardUsd);
+    const specText = `${form.title}\n${form.description}\n${form.successCriteria}`;
+    const specHash = keccak256(toBytes(specText));
+
+    try {
+      // Step 0: Force Base Sepolia. The escrow + USDC contracts only exist there.
+      if (walletChainId !== baseSepolia.id) {
+        await switchChainAsync({ chainId: baseSepolia.id });
+      }
+
+      // Step 1: Approve USDC. `chainId` here is a safety guard — wagmi will
+      // refuse to send if the wallet is somehow still on the wrong chain.
+      setStep("approving");
+      const approveTx = await writeContractAsync({
+        chainId: baseSepolia.id,
+        address: USDC_ADDRESS,
+        abi: usdcAbi,
+        functionName: "approve",
+        args: [ESCROW_ADDRESS, bounty],
+      });
+      await publicClient.waitForTransactionReceipt({ hash: approveTx });
+
+      // Step 2: Create task on-chain (locks USDC in escrow)
+      setStep("creating");
+      const createTx = await writeContractAsync({
+        chainId: baseSepolia.id,
+        address: ESCROW_ADDRESS,
+        abi: escrowAbi,
+        functionName: "createTask",
+        args: [bounty, specHash],
+      });
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: createTx });
+
+      // Parse TaskCreated event to get the on-chain taskId
+      const logs = parseEventLogs({
+        abi: escrowAbi,
+        logs: receipt.logs,
+        eventName: "TaskCreated",
+      });
+      const taskId = logs[0]?.args?.taskId?.toString() ?? `m_${Date.now()}`;
+
+      // Step 3: Mirror to backend
+      setStep("syncing");
+      const requirements = form.successCriteria
+        .split(/\n|;|\r/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      await api<Mission>("/api/missions", {
+        method: "POST",
+        body: JSON.stringify({
+          id: taskId,
+          title: form.title.trim() || "Untitled Mission",
+          description: form.description.trim(),
+          requirements,
+          rewardUsd: Number(form.rewardUsd) || 0,
+          x402ClaimPriceUsd: Number(form.x402ClaimPriceUsd) || 0,
+          workerType: form.workerType,
+          deadline: form.deadline,
+          poster: address,
+          specHash,
+        }),
+      });
+
+      setStep("done");
+      router.push(`/mission/${taskId}`);
+    } catch (err: unknown) {
+      setStep("error");
+      const msg = err instanceof Error ? err.message : "Transaction failed";
+      // Shorten long wallet error messages
+      setError(msg.length > 120 ? msg.slice(0, 120) + "..." : msg);
+    }
   }
 
   return (
@@ -80,10 +185,10 @@ export default function CreateMissionPage() {
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <Input
-              label="Reward Amount (USD)"
+              label="Reward Amount (USDC)"
               type="number"
               min={0}
-              step={1}
+              step={0.01}
               placeholder="0.00"
               value={form.rewardUsd || ""}
               onChange={(e) => update("rewardUsd", Number(e.target.value))}
@@ -93,7 +198,7 @@ export default function CreateMissionPage() {
               label="x402 Claim Price"
               type="number"
               min={0}
-              step={1}
+              step={0.01}
               placeholder="Price to access mission"
               value={form.x402ClaimPriceUsd || ""}
               onChange={(e) =>
@@ -129,14 +234,30 @@ export default function CreateMissionPage() {
             required
           />
 
+          {onWrongChain && (
+            <p className="rounded-xl bg-yellow-100 px-4 py-2 text-sm text-yellow-900">
+              Wrong network. You'll be asked to switch to Base Sepolia when you submit.
+            </p>
+          )}
+
+          {error && (
+            <p className="rounded-xl bg-red-100 px-4 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          )}
+
           <Button
             type="submit"
             variant="primary"
             size="lg"
-            disabled={submitting}
+            disabled={step !== "idle" && step !== "error"}
             className="mt-2 w-full"
           >
-            {submitting ? "Funding mission..." : "Fund & Create Mission"}
+            {!isConnected
+              ? "Connect wallet first"
+              : onWrongChain && step === "idle"
+                ? "Switch to Base Sepolia & Create"
+                : STEP_LABELS[step]}
           </Button>
         </div>
       </form>

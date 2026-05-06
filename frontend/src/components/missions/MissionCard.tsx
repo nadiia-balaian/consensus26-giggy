@@ -6,6 +6,7 @@ import {
   MissionStatusBadge,
   WorkerTypeBadge,
 } from "@/components/ui/StatusBadge";
+import { DeleteMissionButton } from "./DeleteMissionButton";
 
 const tintByWorker: Record<Mission["workerType"], string> = {
   aws_agent: "bg-sky",
@@ -29,7 +30,11 @@ export function MissionCard({ mission }: { mission: Mission }) {
         </span>
       ) : null}
 
-      <div className="flex items-start justify-between gap-3">
+      {mission.status === "open" ? (
+        <DeleteMissionButton missionId={mission.id} />
+      ) : null}
+
+      <div className="flex items-start justify-between gap-3 pr-10">
         <WorkerTypeBadge workerType={mission.workerType} />
         <span className="font-display text-2xl font-extrabold leading-none">
           {formatUsd(mission.rewardUsd)}

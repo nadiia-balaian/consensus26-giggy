@@ -33,6 +33,7 @@ provider:
             - dynamodb:GetItem
             - dynamodb:PutItem
             - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
             - dynamodb:Query
             - dynamodb:Scan
           Resource:
@@ -86,6 +87,12 @@ functions:
       - httpApi:
           path: /api/missions/{id}
           method: GET
+  deleteMission:
+    handler: src/handlers/missions.remove
+    events:
+      - httpApi:
+          path: /api/missions/{id}
+          method: DELETE
 
   # ---------- Agent API (matches frontend) ----------
   agentSnapshot:

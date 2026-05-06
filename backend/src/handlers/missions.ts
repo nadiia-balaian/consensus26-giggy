@@ -4,6 +4,7 @@ import {
   putMission,
   getMission,
   listMissions,
+  deleteMission,
   type MissionRow,
 } from "../lib/dynamo.js";
 
@@ -69,4 +70,15 @@ export const get: APIGatewayProxyHandlerV2 = async (event) => {
   if (!mission) return notFound(`Mission ${id} not found`);
 
   return ok(mission);
+};
+
+// DELETE /api/missions/{id}
+// Off-chain cleanup only — the on-chain task is unaffected. Removes the mission
+// row plus its activity log and report from DynamoDB.
+export const remove: APIGatewayProxyHandlerV2 = async (event) => {
+  const id = event.pathParameters?.id;
+  if (!id) return badRequest("id is required");
+
+  await deleteMission(id);
+  return ok({ deleted: true, id });
 };

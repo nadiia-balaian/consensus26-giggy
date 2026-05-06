@@ -1,5 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
+  DeleteCommand,
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
@@ -69,6 +70,27 @@ export async function listMissionsByStatus(status: string): Promise<MissionRow[]
     }),
   );
   return (res.Items ?? []) as MissionRow[];
+}
+
+export async function deleteMission(id: string): Promise<void> {
+  await ddb.send(new DeleteCommand({ TableName: MISSIONS_TABLE, Key: { id } }));
+  // Best-effort cleanup of related rows. Activity rows share missionId as PK.
+  const activity = await ddb.send(
+    new QueryCommand({
+      TableName: ACTIVITY_TABLE,
+      KeyConditionExpression: "missionId = :m",
+      ExpressionAttributeValues: { ":m": id },
+    }),
+  );
+  for (const row of activity.Items ?? []) {
+    await ddb.send(
+      new DeleteCommand({
+        TableName: ACTIVITY_TABLE,
+        Key: { missionId: row.missionId, timestamp: row.timestamp },
+      }),
+    );
+  }
+  await ddb.send(new DeleteCommand({ TableName: REPORTS_TABLE, Key: { missionId: id } }));
 }
 
 export async function updateMissionStatus(

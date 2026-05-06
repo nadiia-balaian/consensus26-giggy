@@ -15,6 +15,11 @@ export async function getMissionById(id: string): Promise<Mission | null> {
   }
 }
 
+// DELETE /api/missions/:id — off-chain cleanup only. On-chain mission untouched.
+export async function deleteMission(id: string): Promise<void> {
+  await api(`/api/missions/${id}`, { method: "DELETE" });
+}
+
 // POST /api/missions
 export async function createMission(input: CreateMissionInput): Promise<Mission> {
   const id = `m_${Date.now()}`;

@@ -53,7 +53,7 @@ export default async function MissionDetailPage({
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_22rem]">
         {/* Left column: description + requirements */}
         <div className="flex flex-col gap-6">
-          <section className="rounded-3xl border-ink-3 bg-white p-7 shadow-doodle">
+          <section className="select-text rounded-3xl border-ink-3 bg-white p-7 shadow-doodle">
             <h2 className="font-display text-2xl font-bold">Mission Description</h2>
             <p className="mt-3 text-[0.95rem] leading-relaxed text-ink/80">
               {mission.description}
