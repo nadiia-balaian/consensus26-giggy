@@ -1,6 +1,33 @@
-import type { Receipt } from "@/types";
+import { ExternalLink } from "lucide-react";
+import type { Mission } from "@/types";
 import { Badge } from "@/components/ui/StatusBadge";
 import { formatUsd } from "@/lib/utils";
+
+const BASESCAN_TX = "https://sepolia.basescan.org/tx/";
+const BASESCAN_ADDR = "https://sepolia.basescan.org/address/";
+
+export type ReceiptProof = {
+  mission: Mission;
+  pickupTxHash?: string;
+  x402TxHash?: string;
+  submitTxHash?: string;
+  releaseTxHash?: string;
+  reportHash?: string;
+};
+
+function fmtDateTime(iso?: string): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
 
 function Dotted() {
   return <div className="my-4 border-t-2 border-dashed border-ink/60" />;
@@ -33,68 +60,120 @@ function Row({
   );
 }
 
-export function ReceiptCard({ receipt }: { receipt: Receipt }) {
+function TxLink({ hash, label }: { hash?: string; label: string }) {
+  if (!hash) {
+    return (
+      <Row
+        label={label}
+        value={<span className="text-ink/50">not recorded</span>}
+      />
+    );
+  }
   return (
-    <article className="relative mx-auto w-full max-w-xl rounded-3xl border-ink-3 bg-yellow p-7 shadow-doodle-lg">
+    <Row
+      label={label}
+      value={
+        <a
+          href={`${BASESCAN_TX}${hash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 font-mono text-sm break-all underline decoration-dotted underline-offset-2 hover:decoration-solid"
+        >
+          {hash}
+          <ExternalLink className="size-3 shrink-0" />
+        </a>
+      }
+    />
+  );
+}
+
+export function ReceiptCard({ proof }: { proof: ReceiptProof }) {
+  const { mission } = proof;
+  const released = Boolean(proof.releaseTxHash);
+
+  return (
+    <article className="relative mx-auto w-full max-w-2xl rounded-3xl border-ink-3 bg-yellow p-7 shadow-doodle-lg">
       <div className="absolute -top-3 left-6 inline-flex items-center gap-2 rounded-full border-ink-2 bg-cream px-3 py-1 text-[0.7rem] font-bold uppercase tracking-wider shadow-doodle-sm">
-        Receipt #{receipt.id.toUpperCase()}
+        Receipt · Mission {mission.id}
       </div>
 
       <h2 className="mt-3 font-display text-3xl font-extrabold leading-tight">
-        Mission Complete
+        {released ? "Escrow Released" : "Awaiting Release"}
       </h2>
-      <p className="mt-1 text-sm font-medium">{receipt.missionTitle}</p>
+      <p className="mt-1 text-sm font-medium">{mission.title}</p>
 
       <Dotted />
 
       <div className="flex flex-col gap-3">
+        <Row label="Mission ID" value={mission.id} mono />
+        <Row label="Created" value={fmtDateTime(mission.createdAt)} />
         <Row
-          label="Agent Deliverable"
+          label="Agent"
           value={
-            <span className="inline-flex items-center gap-2">
-              <span className="font-mono">{receipt.deliverableName}</span>
-              <Badge tone="mint">Accepted</Badge>
-            </span>
+            mission.claimedBy ? (
+              <a
+                href={`${BASESCAN_ADDR}${mission.claimedBy}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-sm break-all underline decoration-dotted underline-offset-2 hover:decoration-solid"
+              >
+                {mission.claimedBy}
+              </a>
+            ) : (
+              <span className="text-ink/50">—</span>
+            )
           }
         />
-        <Row
-          label="AWS Review Score"
-          value={
-            <span className="inline-flex items-center gap-2">
-              <span className="font-display text-base font-extrabold">
-                {receipt.review.score} / 100
-              </span>
-              <Badge tone="white">Rank: {receipt.review.rank}</Badge>
-            </span>
-          }
-        />
-        <Row label="Approval Reason" value={receipt.review.reason} />
+        <Row label="Claimed" value={fmtDateTime(mission.claimedAt)} />
+        <Row label="Submitted" value={fmtDateTime(mission.submittedAt)} />
+        <Row label="Paid" value={fmtDateTime(mission.paidAt)} />
       </div>
 
       <Dotted />
 
+      <p className="mb-3 text-[0.7rem] font-bold uppercase tracking-wider text-ink/70">
+        On-chain proof
+      </p>
       <div className="flex flex-col gap-3">
-        <Row label="x402 / Base Proof" value={receipt.x402TxHash} mono />
-        <Row label="Gas Used" value={receipt.gasUsed} mono />
+        <TxLink hash={proof.pickupTxHash} label="Pickup tx" />
+        <TxLink hash={proof.x402TxHash} label="x402 payment" />
+        <TxLink hash={proof.submitTxHash} label="Submit-proof tx" />
+        <TxLink hash={proof.releaseTxHash} label="Release tx" />
+      </div>
+
+      <Dotted />
+
+      <p className="mb-3 text-[0.7rem] font-bold uppercase tracking-wider text-ink/70">
+        Commitments
+      </p>
+      <div className="flex flex-col gap-3">
         <Row
-          label="Payout Status"
+          label="Spec hash"
+          value={mission.specHash ?? <span className="text-ink/50">—</span>}
+          mono
+        />
+        <Row
+          label="Report hash"
           value={
-            <span className="inline-flex items-center gap-2">
-              <span className="font-mono">Sent to Wallet ({receipt.payoutWalletMasked})</span>
-              <Badge tone="mint">
-                {receipt.payoutStatus === "confirmed" ? "Confirmed" : "Pending"}
-              </Badge>
-            </span>
+            proof.reportHash ?? mission.reportHash ?? (
+              <span className="text-ink/50">—</span>
+            )
           }
+          mono
         />
       </div>
 
       <Dotted />
 
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between gap-3">
         <span className="font-display text-xl font-bold">Total Payout</span>
-        <span className="font-display text-3xl font-extrabold">
-          {formatUsd(receipt.totalPayoutUsd)}
+        <span className="inline-flex items-center gap-2">
+          <span className="font-display text-3xl font-extrabold">
+            {formatUsd(mission.rewardUsd)}
+          </span>
+          <Badge tone={released ? "mint" : "white"}>
+            {released ? "Confirmed" : "Pending"}
+          </Badge>
         </span>
       </div>
     </article>

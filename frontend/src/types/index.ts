@@ -33,8 +33,16 @@ export type Mission = {
   adminNote?: string;
   /** Marks a card as featured on the market. */
   featured?: boolean;
-  /** Mock x402 / Base payment proof attached on claim. */
+  /** On-chain pickup tx (recorded when the agent claims). */
   x402TxHash?: string;
+  /** Keccak256 of the agent's deliverable, committed on submitProof. */
+  reportHash?: string;
+  /** Keccak256 of the mission spec, committed at createTask. */
+  specHash?: string;
+  /** Release tx hash — escrow released USDC to the agent. */
+  releaseTxHash?: string;
+  /** ISO timestamp the release tx was recorded. */
+  paidAt?: string;
 };
 
 export type AgentTrigger =
@@ -74,34 +82,6 @@ export type AgentSnapshot = {
   decisions: AgentDecision[];
 };
 
-export type ReviewResult = {
-  /** 0..100 quality score from AWS review agent. */
-  score: number;
-  /** Human-readable rank like "Top 5%". */
-  rank: string;
-  reason: string;
-  approved: boolean;
-};
-
-export type Receipt = {
-  id: string;
-  missionId: string;
-  missionTitle: string;
-  /** Filename of the agent's deliverable (e.g. "scraper_v2_final.zip"). */
-  deliverableName: string;
-  review: ReviewResult;
-  /** Mock Base / x402 transaction hash. */
-  x402TxHash: string;
-  /** Mock gas used in ETH (string for display). */
-  gasUsed: string;
-  payoutStatus: "pending" | "confirmed";
-  /** Masked wallet, e.g. "0x***3aZ". */
-  payoutWalletMasked: string;
-  totalPayoutUsd: number;
-  /** ISO timestamp. */
-  issuedAt: string;
-};
-
 export type CreateMissionInput = {
   title: string;
   description: string;
@@ -118,8 +98,3 @@ export type SubmitDeliverablePayload = {
   notes?: string;
 };
 
-export type X402PaymentReceipt = {
-  txHash: string;
-  baseScanUrl: string;
-  amountUsd: number;
-};

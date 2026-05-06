@@ -4,14 +4,14 @@ import { useState } from "react";
 import { Share2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
-export function ShareButton({ receiptId }: { receiptId: string }) {
+export function ShareButton({ missionId }: { missionId: string }) {
   const [copied, setCopied] = useState(false);
 
   async function onShare() {
     const url =
       typeof window !== "undefined"
-        ? `${window.location.origin}/receipt/${receiptId}`
-        : `/receipt/${receiptId}`;
+        ? `${window.location.origin}/receipt/${missionId}`
+        : `/receipt/${missionId}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);

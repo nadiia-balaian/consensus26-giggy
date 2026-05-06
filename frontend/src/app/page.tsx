@@ -32,11 +32,9 @@ export default async function MissionMarketPage() {
       </header>
 
       <section className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {missions
-          .filter((m) => m.status !== "paid")
-          .map((m) => (
-            <MissionCard key={m.id} mission={m} />
-          ))}
+        {missions.map((m) => (
+          <MissionCard key={m.id} mission={m} />
+        ))}
       </section>
     </div>
   );

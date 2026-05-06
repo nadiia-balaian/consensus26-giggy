@@ -16,7 +16,7 @@ const NAV: NavItem[] = [
   { label: "Mission Market", href: "/", match: ["/"] },
   { label: "Create Mission", href: "/create", match: ["/create"] },
   { label: "Agent Dashboard", href: "/agent", match: ["/agent"] },
-  { label: "Receipts", href: "/receipt/r_001", match: ["/receipt"] },
+  { label: "Receipts", href: "/receipt", match: ["/receipt"] },
 ];
 
 function isActive(pathname: string, item: NavItem): boolean {

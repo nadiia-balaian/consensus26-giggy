@@ -2,11 +2,9 @@ import type {
   AgentDecision,
   AgentSnapshot,
   Mission,
-  Receipt,
 } from "@/types";
 import { seedMissions } from "./missions";
 import { seedDecisions, seedSnapshot } from "./agent";
-import { seedReceipts } from "./receipts";
 
 /**
  * Demo-only in-memory store. Resets on every server restart.
@@ -17,7 +15,6 @@ import { seedReceipts } from "./receipts";
 
 type Store = {
   missions: Mission[];
-  receipts: Receipt[];
   agent: AgentSnapshot;
 };
 
@@ -28,7 +25,6 @@ declare global {
 function createStore(): Store {
   return {
     missions: seedMissions.map((m) => ({ ...m })),
-    receipts: seedReceipts.map((r) => ({ ...r, review: { ...r.review } })),
     agent: {
       ...seedSnapshot,
       decisions: seedDecisions.map((d) => ({ ...d })),
@@ -42,11 +38,6 @@ if (!globalThis.__giggyStore) globalThis.__giggyStore = store;
 export function nextMissionId(): string {
   const n = store.missions.length + 1;
   return `m_${String(n).padStart(3, "0")}`;
-}
-
-export function nextReceiptId(): string {
-  const n = store.receipts.length + 1;
-  return `r_${String(n).padStart(3, "0")}`;
 }
 
 export function nextDecisionId(): string {

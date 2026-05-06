@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, FileText, Wallet } from "lucide-react";
+import { ArrowLeft, FileText, Receipt as ReceiptIcon, Wallet } from "lucide-react";
 import { getMissionById, getMissionReport } from "@/lib/api/missions";
 import { LifecycleTimeline } from "@/components/missions/LifecycleTimeline";
 import {
@@ -11,6 +11,7 @@ import {
 import { formatUsd } from "@/lib/utils";
 import { ApproveAction } from "./ApproveAction";
 import { DownloadReportButton } from "@/components/missions/DownloadReportButton";
+import { MissionAutoRefresh } from "./MissionAutoRefresh";
 
 export default async function MissionDetailPage({
   params,
@@ -32,6 +33,7 @@ export default async function MissionDetailPage({
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8">
+      <MissionAutoRefresh status={mission.status} />
       <div>
         <Link
           href="/"
@@ -123,6 +125,15 @@ export default async function MissionDetailPage({
             <h2 className="mb-4 font-display text-2xl font-bold">Lifecycle</h2>
             <LifecycleTimeline mission={mission} />
             {showApprove ? <ApproveAction missionId={mission.id} /> : null}
+            {mission.status === "paid" ? (
+              <Link
+                href={`/receipt/${mission.id}`}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border-ink-2 bg-mint px-4 py-2.5 text-sm font-semibold shadow-doodle-sm press press-hover"
+              >
+                <ReceiptIcon className="size-4" />
+                View Receipt
+              </Link>
+            ) : null}
           </section>
 
           {mission.adminNote ? (
