@@ -69,6 +69,8 @@ export type AgentSnapshot = {
   missionsScanned: number;
   missionsClaimed: number;
   expectedValueUsd: number;
+  /** EVM address of the CDP-managed agent wallet. */
+  agentAddress?: string;
   decisions: AgentDecision[];
 };
 

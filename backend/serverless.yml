@@ -93,6 +93,24 @@ functions:
       - httpApi:
           path: /api/missions/{id}
           method: DELETE
+  getMissionReport:
+    handler: src/handlers/missions.report
+    events:
+      - httpApi:
+          path: /api/missions/{id}/report
+          method: GET
+  getMissionActivity:
+    handler: src/handlers/missions.activity
+    events:
+      - httpApi:
+          path: /api/missions/{id}/activity
+          method: GET
+  releaseMission:
+    handler: src/handlers/missions.release
+    events:
+      - httpApi:
+          path: /api/missions/{id}/release
+          method: POST
 
   # ---------- Agent API (matches frontend) ----------
   agentSnapshot:

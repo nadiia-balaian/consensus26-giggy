@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import { LinkButton } from "@/components/ui/Button";
 import { MissionCard } from "@/components/missions/MissionCard";
+import { RunAgentButton } from "@/components/missions/RunAgentButton";
 import { getMissions } from "@/lib/api/missions";
 
 export default async function MissionMarketPage() {
@@ -21,10 +22,13 @@ export default async function MissionMarketPage() {
           </p>
         </div>
 
-        <LinkButton href="/create" variant="primary" size="md">
-          <Plus className="size-5 stroke-[3]" />
-          New Mission
-        </LinkButton>
+        <div className="flex flex-wrap gap-3">
+          <RunAgentButton />
+          <LinkButton href="/create" variant="primary" size="md">
+            <Plus className="size-5 stroke-[3]" />
+            New Mission
+          </LinkButton>
+        </div>
       </header>
 
       <section className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">

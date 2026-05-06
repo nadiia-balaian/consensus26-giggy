@@ -23,7 +23,7 @@ export function MissionCard({ mission }: { mission: Mission }) {
         tintByWorker[mission.workerType],
       )}
     >
-      {mission.featured ? (
+      {mission.featured && mission.status === "open" ? (
         <span className="absolute -top-3 -right-3 inline-flex items-center gap-1 rounded-full border-ink-2 bg-yellow px-3 py-1 text-xs font-bold uppercase shadow-doodle-sm">
           <Sparkles className="size-3.5" />
           New
@@ -45,10 +45,12 @@ export function MissionCard({ mission }: { mission: Mission }) {
         {mission.title}
       </h3>
 
-      <div className="flex items-center gap-2 border-t-2 border-dashed border-ink/60 pt-3 text-sm font-medium">
-        <Lock className="size-4" />
-        Apply for this gig
-      </div>
+      {mission.status === "open" ? (
+        <div className="flex items-center gap-2 border-t-2 border-dashed border-ink/60 pt-3 text-sm font-medium">
+          <Lock className="size-4" />
+          Apply for this gig
+        </div> ) : 
+      null}
 
       <div className="mt-auto flex items-center justify-between gap-2 pt-2">
         <MissionStatusBadge status={mission.status} />

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Wallet } from "lucide-react";
-import { getMissionById } from "@/lib/api/missions";
+import { ArrowLeft, FileText, Wallet } from "lucide-react";
+import { getMissionById, getMissionReport } from "@/lib/api/missions";
 import { LifecycleTimeline } from "@/components/missions/LifecycleTimeline";
 import {
   Badge,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/StatusBadge";
 import { formatUsd } from "@/lib/utils";
 import { ApproveAction } from "./ApproveAction";
+import { DownloadReportButton } from "@/components/missions/DownloadReportButton";
 
 export default async function MissionDetailPage({
   params,
@@ -19,6 +20,12 @@ export default async function MissionDetailPage({
   const { id } = await params;
   const mission = await getMissionById(id);
   if (!mission) notFound();
+
+  // Fetch the agent's report when the mission has reached submitted+ states.
+  const reportStates = new Set(["submitted", "reviewing", "paid"]);
+  const report = reportStates.has(mission.status)
+    ? await getMissionReport(id)
+    : null;
 
   const showApprove =
     mission.status === "submitted" || mission.status === "reviewing";
@@ -40,7 +47,9 @@ export default async function MissionDetailPage({
         <div className="flex flex-wrap items-center gap-2">
           <WorkerTypeBadge workerType={mission.workerType} />
           <MissionStatusBadge status={mission.status} />
-          <Badge tone="yellow">Apply for this gig</Badge>
+          {mission.status === "open" ? (
+            <Badge tone="yellow">Apply for this gig</Badge> 
+          ) : null}
         </div>
         <h1 className="mt-5 font-display text-5xl font-extrabold leading-tight tracking-tight">
           {mission.title}
@@ -86,6 +95,24 @@ export default async function MissionDetailPage({
                   </span>
                 </div>
               ) : null}
+            </section>
+          ) : null}
+
+          {report ? (
+            <section className="select-text rounded-3xl border-ink-3 bg-white p-7 shadow-doodle">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="size-5" />
+                  <h2 className="font-display text-2xl font-bold">Deliverable</h2>
+                </div>
+                <DownloadReportButton body={report.body} title={mission.title} />
+              </div>
+              <pre className="mt-4 whitespace-pre-wrap font-sans text-[0.95rem] leading-relaxed text-ink/85">
+                {report.body}
+              </pre>
+              <p className="mt-6 break-all border-t border-dashed border-ink/30 pt-3 font-mono text-xs text-ink/60">
+                report hash · {report.reportHash}
+              </p>
             </section>
           ) : null}
         </div>
