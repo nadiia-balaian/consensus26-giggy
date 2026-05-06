@@ -1,0 +1,150 @@
+service: taskvault-backend
+frameworkVersion: "3"
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ${env:AWS_REGION, "us-east-1"}
+  stage: ${opt:stage, "dev"}
+  memorySize: 512
+  timeout: 30
+  environment:
+    TASKS_TABLE: ${self:service}-${self:provider.stage}-tasks
+    ACTIVITY_TABLE: ${self:service}-${self:provider.stage}-activity
+    REPORTS_TABLE: ${self:service}-${self:provider.stage}-reports
+    ESCROW_CONTRACT_ADDRESS: ${env:ESCROW_CONTRACT_ADDRESS}
+    USDC_ADDRESS: ${env:USDC_ADDRESS, "0x036CbD53842c5426634e7929541eC2318f3dCF7e"}
+    BASE_SEPOLIA_RPC: ${env:BASE_SEPOLIA_RPC, "https://sepolia.base.org"}
+    X402_API_URL: ${env:X402_API_URL}
+    BEDROCK_MODEL_ID: ${env:BEDROCK_MODEL_ID, "anthropic.claude-sonnet-4-20250514-v1:0"}
+    CDP_API_KEY_NAME: ${env:CDP_API_KEY_NAME}
+    CDP_API_KEY_SECRET: ${env:CDP_API_KEY_SECRET}
+    AGENT_WALLET_ID: ${env:AGENT_WALLET_ID}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - !GetAtt TasksTable.Arn
+            - !GetAtt ActivityTable.Arn
+            - !GetAtt ReportsTable.Arn
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeModel
+            - bedrock:InvokeModelWithResponseStream
+          Resource: "*"
+
+plugins:
+  - serverless-esbuild
+  - serverless-offline
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    exclude:
+      - "@aws-sdk/*"
+
+functions:
+  # ---------- Public API ----------
+  createTask:
+    handler: src/handlers/tasks.create
+    events:
+      - httpApi:
+          path: /tasks
+          method: POST
+  listTasks:
+    handler: src/handlers/tasks.list
+    events:
+      - httpApi:
+          path: /tasks
+          method: GET
+  getTask:
+    handler: src/handlers/tasks.get
+    events:
+      - httpApi:
+          path: /tasks/{taskId}
+          method: GET
+  getActivity:
+    handler: src/handlers/activity.list
+    events:
+      - httpApi:
+          path: /tasks/{taskId}/activity
+          method: GET
+  getReport:
+    handler: src/handlers/activity.report
+    events:
+      - httpApi:
+          path: /tasks/{taskId}/report
+          method: GET
+
+  # ---------- Agent runner (EventBridge cron) ----------
+  agentRunner:
+    handler: src/handlers/agent.tick
+    timeout: 300
+    events:
+      - schedule:
+          rate: rate(30 seconds)
+          enabled: ${env:AGENT_CRON_ENABLED, "true"}
+
+resources:
+  Resources:
+    TasksTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.TASKS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: taskId
+            AttributeType: S
+          - AttributeName: state
+            AttributeType: S
+        KeySchema:
+          - AttributeName: taskId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: state-index
+            KeySchema:
+              - AttributeName: state
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+
+    ActivityTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.ACTIVITY_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: taskId
+            AttributeType: S
+          - AttributeName: timestamp
+            AttributeType: N
+        KeySchema:
+          - AttributeName: taskId
+            KeyType: HASH
+          - AttributeName: timestamp
+            KeyType: RANGE
+
+    ReportsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.REPORTS_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: taskId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: taskId
+            KeyType: HASH

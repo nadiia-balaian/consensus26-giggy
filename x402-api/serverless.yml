@@ -1,0 +1,37 @@
+service: taskvault-x402-api
+frameworkVersion: "3"
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ${env:AWS_REGION, "us-east-1"}
+  stage: ${opt:stage, "dev"}
+  memorySize: 256
+  timeout: 15
+  environment:
+    RECIPIENT_WALLET: ${env:RECIPIENT_WALLET}
+    PRICE_USDC: ${env:PRICE_USDC, "0.01"}
+    USDC_ADDRESS: ${env:USDC_ADDRESS, "0x036CbD53842c5426634e7929541eC2318f3dCF7e"}
+    NETWORK: ${env:NETWORK, "base-sepolia"}
+
+plugins:
+  - serverless-esbuild
+  - serverless-offline
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+
+functions:
+  premiumNews:
+    handler: src/handler.premiumNews
+    events:
+      - httpApi:
+          path: /premium-news
+          method: GET
