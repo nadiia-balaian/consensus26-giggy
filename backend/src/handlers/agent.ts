@@ -82,14 +82,31 @@ async function runScan(): Promise<{
   );
   await log(mission.id, "plan", plan);
 
-  // 5. Fetch data (free for now — Phase 7 adds x402)
-  await log(mission.id, "data_fetch", "Fetching research data...");
-  const articles = await fetchNews(mission.title);
-  await log(
-    mission.id,
-    "data_received",
-    `Received ${articles.length} articles`,
-  );
+  // 5. Fetch data via x402-paid API. The first call returns 402, the agent's
+  //    CDP wallet signs a USDC micropayment, the facilitator settles on-chain,
+  //    and we get the data back. The settled tx hash is logged as an
+  //    `x402_payment` activity row so the UI can render a BaseScan link.
+  await log(mission.id, "data_fetch", "Calling premium news API...");
+  let articles: Awaited<ReturnType<typeof fetchNews>>["articles"] = [];
+  try {
+    const newsResult = await fetchNews(mission.title);
+    articles = newsResult.articles;
+    if (newsResult.paymentTxHash) {
+      await log(
+        mission.id,
+        "x402_payment",
+        "Paid premium API via x402",
+        newsResult.paymentTxHash,
+      );
+    }
+    await log(mission.id, "data_received", `Received ${articles.length} articles`);
+  } catch (e) {
+    await log(
+      mission.id,
+      "data_fetch_failed",
+      `News fetch failed: ${(e as Error).message}`,
+    );
+  }
 
   // 6. Generate the report
   await log(mission.id, "writing", "Generating report with Claude...");

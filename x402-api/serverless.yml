@@ -8,13 +8,22 @@ provider:
   runtime: nodejs20.x
   region: ${env:AWS_REGION, "us-east-1"}
   stage: ${opt:stage, "dev"}
-  memorySize: 256
-  timeout: 15
+  memorySize: 512
+  timeout: 60
   environment:
     RECIPIENT_WALLET: ${env:RECIPIENT_WALLET}
     PRICE_USDC: ${env:PRICE_USDC, "0.01"}
     USDC_ADDRESS: ${env:USDC_ADDRESS, "0x036CbD53842c5426634e7929541eC2318f3dCF7e"}
     NETWORK: ${env:NETWORK, "base-sepolia"}
+    BEDROCK_MODEL_ID: ${env:BEDROCK_MODEL_ID}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeModel
+            - bedrock:InvokeModelWithResponseStream
+          Resource: "*"
 
 plugins:
   - serverless-esbuild
