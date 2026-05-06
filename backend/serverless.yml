@@ -6,22 +6,25 @@ useDotenv: true
 provider:
   name: aws
   runtime: nodejs20.x
-  region: ${env:AWS_REGION, "us-east-1"}
+  region: ${env:AWS_REGION, "us-east-2"}
   stage: ${opt:stage, "dev"}
   memorySize: 512
   timeout: 30
+  httpApi:
+    cors: true
   environment:
-    TASKS_TABLE: ${self:service}-${self:provider.stage}-tasks
+    MISSIONS_TABLE: ${self:service}-${self:provider.stage}-missions
     ACTIVITY_TABLE: ${self:service}-${self:provider.stage}-activity
     REPORTS_TABLE: ${self:service}-${self:provider.stage}-reports
+    AGENT_TABLE: ${self:service}-${self:provider.stage}-agent
     ESCROW_CONTRACT_ADDRESS: ${env:ESCROW_CONTRACT_ADDRESS}
     USDC_ADDRESS: ${env:USDC_ADDRESS, "0x036CbD53842c5426634e7929541eC2318f3dCF7e"}
     BASE_SEPOLIA_RPC: ${env:BASE_SEPOLIA_RPC, "https://sepolia.base.org"}
     X402_API_URL: ${env:X402_API_URL}
-    BEDROCK_MODEL_ID: ${env:BEDROCK_MODEL_ID, "anthropic.claude-sonnet-4-20250514-v1:0"}
-    CDP_API_KEY_NAME: ${env:CDP_API_KEY_NAME}
+    BEDROCK_MODEL_ID: ${env:BEDROCK_MODEL_ID}
+    CDP_API_KEY_ID: ${env:CDP_API_KEY_ID}
     CDP_API_KEY_SECRET: ${env:CDP_API_KEY_SECRET}
-    AGENT_WALLET_ID: ${env:AGENT_WALLET_ID}
+    CDP_WALLET_SECRET: ${env:CDP_WALLET_SECRET}
   iam:
     role:
       statements:
@@ -33,14 +36,21 @@ provider:
             - dynamodb:Query
             - dynamodb:Scan
           Resource:
-            - !GetAtt TasksTable.Arn
+            - !GetAtt MissionsTable.Arn
+            - !Sub "${MissionsTable.Arn}/index/*"
             - !GetAtt ActivityTable.Arn
             - !GetAtt ReportsTable.Arn
+            - !GetAtt AgentTable.Arn
         - Effect: Allow
           Action:
             - bedrock:InvokeModel
             - bedrock:InvokeModelWithResponseStream
           Resource: "*"
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+          Resource:
+            - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:service}-${self:provider.stage}-agentCron"
 
 plugins:
   - serverless-esbuild
@@ -57,66 +67,69 @@ custom:
       - "@aws-sdk/*"
 
 functions:
-  # ---------- Public API ----------
-  createTask:
-    handler: src/handlers/tasks.create
+  # ---------- Missions API (matches frontend) ----------
+  createMission:
+    handler: src/handlers/missions.create
     events:
       - httpApi:
-          path: /tasks
+          path: /api/missions
           method: POST
-  listTasks:
-    handler: src/handlers/tasks.list
+  listMissions:
+    handler: src/handlers/missions.list
     events:
       - httpApi:
-          path: /tasks
+          path: /api/missions
           method: GET
-  getTask:
-    handler: src/handlers/tasks.get
+  getMission:
+    handler: src/handlers/missions.get
     events:
       - httpApi:
-          path: /tasks/{taskId}
-          method: GET
-  getActivity:
-    handler: src/handlers/activity.list
-    events:
-      - httpApi:
-          path: /tasks/{taskId}/activity
-          method: GET
-  getReport:
-    handler: src/handlers/activity.report
-    events:
-      - httpApi:
-          path: /tasks/{taskId}/report
+          path: /api/missions/{id}
           method: GET
 
-  # ---------- Agent runner (EventBridge cron) ----------
-  agentRunner:
-    handler: src/handlers/agent.tick
+  # ---------- Agent API (matches frontend) ----------
+  agentSnapshot:
+    handler: src/handlers/agent.snapshot
+    events:
+      - httpApi:
+          path: /api/agent/snapshot
+          method: GET
+  agentScan:
+    handler: src/handlers/agent.scan
+    timeout: 300
+    events:
+      - httpApi:
+          path: /api/agent/scan
+          method: POST
+
+  # ---------- Agent cron (same logic as POST /api/agent/scan) ----------
+  agentCron:
+    handler: src/handlers/agent.cron
     timeout: 300
     events:
       - schedule:
-          rate: rate(30 seconds)
-          enabled: ${env:AGENT_CRON_ENABLED, "true"}
+          rate: rate(1 minute)
+          enabled: ${env:AGENT_CRON_ENABLED, "false"}
 
 resources:
   Resources:
-    TasksTable:
+    MissionsTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${self:provider.environment.TASKS_TABLE}
+        TableName: ${self:provider.environment.MISSIONS_TABLE}
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
-          - AttributeName: taskId
+          - AttributeName: id
             AttributeType: S
-          - AttributeName: state
+          - AttributeName: status
             AttributeType: S
         KeySchema:
-          - AttributeName: taskId
+          - AttributeName: id
             KeyType: HASH
         GlobalSecondaryIndexes:
-          - IndexName: state-index
+          - IndexName: status-index
             KeySchema:
-              - AttributeName: state
+              - AttributeName: status
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
@@ -127,12 +140,12 @@ resources:
         TableName: ${self:provider.environment.ACTIVITY_TABLE}
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
-          - AttributeName: taskId
+          - AttributeName: missionId
             AttributeType: S
           - AttributeName: timestamp
             AttributeType: N
         KeySchema:
-          - AttributeName: taskId
+          - AttributeName: missionId
             KeyType: HASH
           - AttributeName: timestamp
             KeyType: RANGE
@@ -143,8 +156,20 @@ resources:
         TableName: ${self:provider.environment.REPORTS_TABLE}
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
-          - AttributeName: taskId
+          - AttributeName: missionId
             AttributeType: S
         KeySchema:
-          - AttributeName: taskId
+          - AttributeName: missionId
+            KeyType: HASH
+
+    AgentTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.AGENT_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
             KeyType: HASH

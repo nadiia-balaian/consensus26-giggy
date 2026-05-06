@@ -1,8 +1,8 @@
 {
   "baseSepolia": {
     "chainId": 84532,
-    "TaskEscrow": "",
+    "TaskEscrow": "0xc8e37583151D0c9818dC22E08C8acaDa5B68685b",
     "USDC": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-    "agent": ""
+    "agent": "0x78559750eCD96320BCdDaA02B2cff88D87CB4BeB"
   }
 }
