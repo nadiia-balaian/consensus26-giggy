@@ -25,6 +25,7 @@ provider:
     CDP_API_KEY_ID: ${env:CDP_API_KEY_ID}
     CDP_API_KEY_SECRET: ${env:CDP_API_KEY_SECRET}
     CDP_WALLET_SECRET: ${env:CDP_WALLET_SECRET}
+    X402_CLIENT_PRIVATE_KEY: ${env:X402_CLIENT_PRIVATE_KEY}
   iam:
     role:
       statements:

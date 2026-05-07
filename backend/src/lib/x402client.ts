@@ -1,65 +1,42 @@
 // x402 buyer-side client.
 //
-// Wraps `x402-axios` with a viem LocalAccount backed by the agent's
-// CDP-managed wallet. When a paid API returns 402 the interceptor
-// signs an EIP-3009 USDC transferWithAuthorization, the facilitator
-// settles it on-chain, and the API serves the data.
+// Uses a dedicated hot key for x402 signing, separate from the CDP-managed
+// wallet that signs pickup/submitProof. We tried bridging CDP into a viem
+// LocalAccount first; x402-axios's runtime check rejected it ("does not
+// support signTypedData") because EIP-3009 needs a viem-native typed-data
+// signer. Hot key = simplest viable signer, no SDK gymnastics.
 //
-// The agent uses ONE wallet (the same `0x7855…` that signs pickup +
-// submitProof on the escrow). Every action is therefore from the same
-// address on BaseScan — single-identity demo narrative.
+// In a v2 marketplace each agent would have its own CDP-managed payment
+// wallet. For this hackathon, one shared hot key signed and funded out of
+// our scripts/ folder is fine.
 
 import axios, { type AxiosResponse } from "axios";
 import { withPaymentInterceptor, decodeXPaymentResponse } from "x402-axios";
-import { toAccount } from "viem/accounts";
-import { CdpClient } from "@coinbase/cdp-sdk";
+import { privateKeyToAccount } from "viem/accounts";
+
+const PRIVATE_KEY = process.env.X402_CLIENT_PRIVATE_KEY ?? "";
 
 let cachedClient: ReturnType<typeof axios.create> | null = null;
 let cachedAddress: `0x${string}` | null = null;
 
-async function buildClient() {
-  const cdp = new CdpClient();
-  const cdpAccount = await cdp.evm.getOrCreateAccount({ name: "taskvault-agent" });
-  cachedAddress = cdpAccount.address as `0x${string}`;
-
-  // Bridge CDP signing into a viem-compatible LocalAccount. CDP's account
-  // exposes signMessage / signTypedData / signTransaction with a shape
-  // compatible enough at runtime; we route viem's calls through it.
-  const account = toAccount({
-    address: cdpAccount.address as `0x${string}`,
-    async signMessage({ message }) {
-      const sig = await cdpAccount.signMessage({
-        message: typeof message === "string" ? message : { raw: message.raw as `0x${string}` },
-      } as Parameters<typeof cdpAccount.signMessage>[0]);
-      return sig as `0x${string}`;
-    },
-    async signTypedData(parameters) {
-      const sig = await cdpAccount.signTypedData(
-        parameters as Parameters<typeof cdpAccount.signTypedData>[0],
-      );
-      return sig as `0x${string}`;
-    },
-    async signTransaction(transaction) {
-      const sig = await cdpAccount.signTransaction(
-        transaction as Parameters<typeof cdpAccount.signTransaction>[0],
-      );
-      return sig as `0x${string}`;
-    },
-  });
-
-  // x402-axios accepts a LocalAccount directly — no walletClient needed.
+function buildClient() {
+  if (!PRIVATE_KEY || !PRIVATE_KEY.startsWith("0x")) {
+    throw new Error("X402_CLIENT_PRIVATE_KEY env var is missing or malformed");
+  }
+  const account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
+  cachedAddress = account.address;
   cachedClient = withPaymentInterceptor(axios.create(), account);
   return cachedClient;
 }
 
-async function client() {
-  return cachedClient ?? (await buildClient());
+function client() {
+  return cachedClient ?? buildClient();
 }
 
-/** Returns the agent's CDP-managed address (cached after first call). */
-export async function getX402PayerAddress(): Promise<`0x${string}`> {
+/** Returns the x402 payer wallet's EVM address. */
+export function getX402PayerAddress(): `0x${string}` {
   if (cachedAddress) return cachedAddress;
-  await buildClient();
+  buildClient();
   return cachedAddress!;
 }
 
@@ -67,7 +44,7 @@ export interface X402Result<T> {
   data: T;
   /** On-chain settle tx hash for the USDC micropayment, if present. */
   txHash: string | null;
-  /** Wallet that paid (the agent's). */
+  /** Wallet that paid (the x402 hot key). */
   payer: `0x${string}` | null;
 }
 
@@ -77,7 +54,7 @@ export interface X402Result<T> {
  * plus the settled tx hash extracted from `X-PAYMENT-RESPONSE`.
  */
 export async function x402Get<T>(url: string): Promise<X402Result<T>> {
-  const c = await client();
+  const c = client();
   const res: AxiosResponse<T> = await c.get(url);
   const settled = decodeXPaymentResponse(res.headers["x-payment-response"]);
   return {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bot } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
 import { api } from "@/lib/api/client";
 
 // Triggers POST /api/agent/scan, then polls the server component every few
@@ -12,6 +13,7 @@ import { api } from "@/lib/api/client";
 export function RunAgentButton() {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function onClick() {
     if (pending) return;
@@ -20,7 +22,7 @@ export function RunAgentButton() {
     try {
       await api("/api/agent/scan", { method: "POST" });
     } catch (err) {
-      alert(`Failed to trigger agent: ${err instanceof Error ? err.message : "unknown error"}`);
+      setErrorMessage(err instanceof Error ? err.message : "Unknown error");
       setPending(false);
       return;
     }
@@ -39,15 +41,25 @@ export function RunAgentButton() {
   }
 
   return (
-    <Button
-      onClick={onClick}
-      disabled={pending}
-      variant="ink"
-      size="md"
-      title="Trigger the agent to scan and claim the oldest open mission"
-    >
-      <Bot className="size-5" />
-      {pending ? "Agent working…" : "Run Agent"}
-    </Button>
+    <>
+      <Button
+        onClick={onClick}
+        disabled={pending}
+        variant="ink"
+        size="md"
+        title="Trigger the agent to scan and claim the oldest open mission"
+      >
+        <Bot className="size-5" />
+        {pending ? "Agent working…" : "Run Agent"}
+      </Button>
+
+      <Dialog
+        open={errorMessage !== null}
+        onClose={() => setErrorMessage(null)}
+        title="Couldn't trigger the agent"
+        message={errorMessage ?? ""}
+        variant="danger"
+      />
+    </>
   );
 }

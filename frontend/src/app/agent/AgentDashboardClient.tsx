@@ -128,10 +128,10 @@ export function AgentDashboardClient({
             <Bot className="size-3.5" />
             {snapshot.online ? "Agent Online" : "Agent Offline"}
           </Badge>
-          <Button onClick={onScan} disabled={scanning} variant="primary" size="md">
+          {/* <Button onClick={onScan} disabled={scanning} variant="primary" size="md">
             <Zap className="size-4 stroke-[3]" />
             {scanning ? "Scanning..." : "Run Agent Scan"}
-          </Button>
+          </Button> */}
         </div>
       </header>
 

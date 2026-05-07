@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, FileText, Receipt as ReceiptIcon, Wallet } from "lucide-react";
+import { ArrowLeft, FileText, Receipt as ReceiptIcon, ShieldCheck, Wallet } from "lucide-react";
 import { getMissionById, getMissionReport } from "@/lib/api/missions";
 import { LifecycleTimeline } from "@/components/missions/LifecycleTimeline";
 import {
@@ -11,6 +11,7 @@ import {
 import { formatUsd } from "@/lib/utils";
 import { ApproveAction } from "./ApproveAction";
 import { DownloadReportButton } from "@/components/missions/DownloadReportButton";
+import { MissionActivity } from "@/components/missions/MissionActivity";
 import { MissionAutoRefresh } from "./MissionAutoRefresh";
 
 export default async function MissionDetailPage({
@@ -85,19 +86,20 @@ export default async function MissionDetailPage({
           {mission.claimedBy ? (
             <section className="rounded-3xl border-ink-3 bg-cream p-6 shadow-doodle">
               <h3 className="font-display text-lg font-bold">Worker / Agent</h3>
-              <p className="mt-1 font-mono text-sm">{mission.claimedBy}</p>
-              {mission.x402TxHash ? (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <Badge tone="white">
-                    <Wallet className="size-3" />
-                    x402 Proof
-                  </Badge>
-                  <span className="font-mono text-sm break-all">
-                    {mission.x402TxHash}
-                  </span>
-                </div>
-              ) : null}
+              <a
+                href={`https://sepolia.basescan.org/address/${mission.claimedBy}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-1 break-all font-mono text-sm underline"
+              >
+                {mission.claimedBy}
+                <Wallet className="size-3" />
+              </a>
             </section>
+          ) : null}
+
+          {mission.status !== "open" ? (
+            <MissionActivity missionId={mission.id} status={mission.status} />
           ) : null}
 
           {report ? (
@@ -112,9 +114,43 @@ export default async function MissionDetailPage({
               <pre className="mt-4 whitespace-pre-wrap font-sans text-[0.95rem] leading-relaxed text-ink/85">
                 {report.body}
               </pre>
-              <p className="mt-6 break-all border-t border-dashed border-ink/30 pt-3 font-mono text-xs text-ink/60">
-                report hash · {report.reportHash}
+              <div className="mt-6 flex flex-col gap-2 border-t border-dashed border-ink/30 pt-3">
+                <Badge tone="mint">
+                  <ShieldCheck className="size-3" />
+                  Verified on-chain
+                </Badge>
+                <code className="break-all font-mono text-xs text-ink/70">
+                  keccak256(report) · {report.reportHash}
+                </code>
+                <p className="text-xs text-ink/60">
+                  This hash was committed by the agent in the{" "}
+                  <span className="font-semibold">submitProof</span> transaction.
+                  Anyone can verify the deliverable matches by re-hashing the
+                  downloaded file.
+                </p>
+              </div>
+            </section>
+          ) : null}
+
+          {mission.status === "paid" && mission.releaseTxHash ? (
+            <section className="rounded-3xl border-ink-3 bg-mint p-6 shadow-doodle">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="size-5" />
+                <h3 className="font-display text-lg font-bold">Bounty released</h3>
+              </div>
+              <p className="mt-2 text-sm">
+                The poster signed the release. USDC moved from escrow to the
+                agent on-chain.
               </p>
+              <a
+                href={`https://sepolia.basescan.org/tx/${mission.releaseTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-full border-ink-2 bg-white px-3 py-1.5 font-mono text-xs press press-hover"
+              >
+                {mission.releaseTxHash.slice(0, 10)}…{mission.releaseTxHash.slice(-8)}
+                <Wallet className="size-3" />
+              </a>
             </section>
           ) : null}
         </div>

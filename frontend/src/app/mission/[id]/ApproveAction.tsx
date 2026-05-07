@@ -10,6 +10,7 @@ import {
 } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
 import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
 import { ESCROW_ADDRESS, escrowAbi } from "@/lib/contracts";
 import { recordRelease } from "@/lib/api/missions";
 
@@ -34,13 +35,14 @@ export function ApproveAction({ missionId }: { missionId: string }) {
   const [step, setStep] = useState<Step>("idle");
   const [error, setError] = useState<string | null>(null);
   const [releaseTx, setReleaseTx] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // The on-chain taskId is the numeric mission id from the TaskCreated event.
   // Legacy mock missions have ids like "m_1234..." — release won't work for those.
   const numericTaskId = /^\d+$/.test(missionId) ? missionId : null;
   const onWrongChain = isConnected && walletChainId !== baseSepolia.id;
 
-  async function onApprove() {
+  function onApprove() {
     if (step !== "idle" && step !== "error") return;
     if (!isConnected) {
       setError("Connect your wallet first");
@@ -54,15 +56,13 @@ export function ApproveAction({ missionId }: { missionId: string }) {
       setError("Network not ready");
       return;
     }
-    if (
-      !confirm(
-        "Release the bounty to the agent? This is an on-chain transaction and cannot be undone.",
-      )
-    ) {
-      return;
-    }
-
     setError(null);
+    setConfirmOpen(true);
+  }
+
+  async function executeRelease() {
+    setConfirmOpen(false);
+    if (!publicClient || !numericTaskId) return;
     try {
       if (walletChainId !== baseSepolia.id) {
         setStep("switching");
@@ -131,6 +131,28 @@ export function ApproveAction({ missionId }: { missionId: string }) {
       >
         {!isConnected ? "Connect wallet first" : STEP_LABELS[step]}
       </Button>
+
+      <Dialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={executeRelease}
+        title="Release the bounty?"
+        message={
+          <>
+            <p>
+              You&apos;re about to send the escrowed USDC to the agent
+              on-chain. This requires your signature in MetaMask and{" "}
+              <strong>cannot be undone</strong>.
+            </p>
+            <p className="mt-3">
+              Make sure you&apos;re happy with the deliverable before
+              continuing.
+            </p>
+          </>
+        }
+        confirmLabel="Yes, release"
+        variant="info"
+      />
     </div>
   );
 }

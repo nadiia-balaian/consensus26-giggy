@@ -8,8 +8,11 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       "Content-Type": "application/json",
       ...init?.headers,
     },
-    // Revalidate server-component fetches every 2s so the list stays fresh
-    next: typeof window === "undefined" ? { revalidate: 2 } : undefined,
+    // Always go to the network. The agent updates DDB asynchronously and any
+    // stale layer (Next route cache, fetch cache) makes mission status look
+    // wrong on the home + dashboard. router.refresh() polling drives the
+    // re-fetch — we just need to make sure each one actually hits the API.
+    cache: "no-store",
   });
 
   if (!res.ok) {

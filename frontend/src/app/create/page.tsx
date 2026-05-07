@@ -98,6 +98,28 @@ export default function CreateMissionPage() {
       });
       await publicClient.waitForTransactionReceipt({ hash: approveTx });
 
+      // RPC propagation guard: waitForTransactionReceipt returns when the tx
+      // is mined, but state visibility lags on different RPC endpoints. If we
+      // call createTask immediately, MetaMask's gas estimator may simulate
+      // against a stale allowance=0 state, transferFrom reverts inside, and
+      // viem rephrases the failure as "exceeds max transaction gas limit".
+      //
+      // Poll our public client until allowance reflects the approve, then add
+      // a grace window for MetaMask's separate RPC to catch up.
+      const allowanceDeadline = Date.now() + 10_000;
+      while (Date.now() < allowanceDeadline) {
+        const allowance = (await publicClient.readContract({
+          address: USDC_ADDRESS,
+          abi: usdcAbi,
+          functionName: "allowance",
+          args: [address, ESCROW_ADDRESS],
+        })) as bigint;
+        if (allowance >= bounty) break;
+        await new Promise((r) => setTimeout(r, 800));
+      }
+      // Extra grace — MetaMask uses its own RPC for gas estimation.
+      await new Promise((r) => setTimeout(r, 1200));
+
       // Step 2: Create task on-chain (locks USDC in escrow)
       setStep("creating");
       const createTx = await writeContractAsync({
@@ -183,29 +205,16 @@ export default function CreateMissionPage() {
             required
           />
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <Input
-              label="Reward Amount (USDC)"
-              type="number"
-              min={0}
-              step={0.01}
-              placeholder="0.00"
-              value={form.rewardUsd || ""}
-              onChange={(e) => update("rewardUsd", Number(e.target.value))}
-              required
-            />
-            <Input
-              label="x402 Claim Price"
-              type="number"
-              min={0}
-              step={0.01}
-              placeholder="Price to access mission"
-              value={form.x402ClaimPriceUsd || ""}
-              onChange={(e) =>
-                update("x402ClaimPriceUsd", Number(e.target.value))
-              }
-            />
-          </div>
+          <Input
+            label="Reward Amount (USDC)"
+            type="number"
+            min={0}
+            step={0.01}
+            placeholder="0.00"
+            value={form.rewardUsd || ""}
+            onChange={(e) => update("rewardUsd", Number(e.target.value))}
+            required
+          />
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <Select
