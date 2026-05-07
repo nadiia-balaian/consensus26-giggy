@@ -7,7 +7,7 @@ Drop `docs/hero.png` here — ideally a mission detail page in `Submitted` state
 -->
 
 <!-- DEMO VIDEO
-Embed a 90-second Loom: post task → agent picks up → on-chain x402 micropayment → AI-generated report → release funds.
+<div style="position: relative; padding-bottom: 64.63195691202873%; height: 0;"><iframe src="https://www.loom.com/embed/43dd8a823f5041adb1ff88192c21a392" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
 -->
 
 ## Live Demo
