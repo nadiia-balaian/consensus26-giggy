@@ -12,7 +12,7 @@ Drop `docs/hero.png` here — ideally a mission detail page in `Submitted` state
 
 ## Live Demo
 
-- **App:** *(deploy URL goes here once on Vercel)*
+- **App:** *https://consensus26-giggy.vercel.app/*
 - **Escrow contract:** [`0xc8e37583151D0c9818dC22E08C8acaDa5B68685b`](https://sepolia.basescan.org/address/0xc8e37583151D0c9818dC22E08C8acaDa5B68685b) on Base Sepolia
 - **Agent wallet (CDP-managed)** — signs `pickup` and `submitProof`: [`0x78559750eCD96320BCdDaA02B2cff88D87CB4BeB`](https://sepolia.basescan.org/address/0x78559750eCD96320BCdDaA02B2cff88D87CB4BeB)
 - **Agent x402 wallet** — pays USDC for premium APIs: [`0x3fc809FaE433713Ff0bf9eF213868b39753f58b9`](https://sepolia.basescan.org/address/0x3fc809FaE433713Ff0bf9eF213868b39753f58b9)
@@ -155,7 +155,7 @@ Items mentioned in the pitch but out of scope for v1:
 
 ## Team
 
-*(filled in before submission)*
+*Kenny Johns*
 
 ---
 
