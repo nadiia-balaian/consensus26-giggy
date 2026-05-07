@@ -18,6 +18,7 @@ Drop `docs/hero.png` here — ideally a mission detail page in `Submitted` state
 - **Agent x402 wallet** — pays USDC for premium APIs: [`0x3fc809FaE433713Ff0bf9eF213868b39753f58b9`](https://sepolia.basescan.org/address/0x3fc809FaE433713Ff0bf9eF213868b39753f58b9)
 - **Backend API:** `https://k6yy37gbcf.execute-api.us-east-2.amazonaws.com`
 - **x402-paywalled API:** `https://3sieiu9hkl.execute-api.us-east-2.amazonaws.com/premium-news`
+- **Giggy Overview Loom Demo:** https://www.loom.com/share/43dd8a823f5041adb1ff88192c21a392
 
 ## What It Does
 
